@@ -50,7 +50,7 @@ MailTime = (function() {
     this.queueAdd = bind(this.queueAdd, this);
     check(settings, Object);
     if (Object.keys(settings).length) {
-      this.login = settings.login, this.host = settings.host, this.connectionUrl = settings.connectionUrl, this.accountName = settings.accountName, this.verbose = settings.verbose, this.intervalTime = settings.intervalTime, this.saveHistory = settings.saveHistory, this.retryTimes = settings.retryTimes, this.template = settings.template, this.templateId = settings.templateId;
+      this.login = settings.login, this.host = settings.host, this.connectionUrl = settings.connectionUrl, this.accountName = settings.accountName, this.verbose = settings.verbose, /*this.logging = settings.logging,*/ this.intervalTime = settings.intervalTime, this.saveHistory = settings.saveHistory, this.retryTimes = settings.retryTimes, this.template = settings.template, this.templateId = settings.templateId;
     }
     check(this.login, String);
     check(this.host, String);
@@ -148,43 +148,50 @@ MailTime = (function() {
                 replyTo: (ref2 = letter.opts) != null ? ref2.replyTo : void 0,
                 subject: letter.subject.replace(/<(?:.|\n)*?>/gm, ''),
                 html: _self.compileBody(letter.opts, letter.template)
+              },function(error,response){
+                console.log(error,response);
               });
-              if (letter.callback && ((ref3 = _self.callbacks) != null ? ref3[letter.callback] : void 0)) {
-                _self.callbacks[letter.callback](null, true, letter.to);
-                delete _self.callbacks[letter.callback];
-              }
-              if (!_self.saveHistory) {
-                mailQueue.remove({
-                  _id: letter._id
-                });
-              }
-              if (_self.verbose) {
-                console.info("Email was successfully sent to " + letter.to);
-              }
-            } catch (_error) {
-              e = _error;
-              if (_self.verbose) {
-                console.info("Email wasn't sent to " + letter.to, e);
-              }
-              mailQueue.update({
-                _id: letter._id
-              }, {
-                $set: {
-                  isSent: false
-                },
-                $inc: {
-                  tries: 1
+              //if (_self.logging.enabled) {
+                if (letter.callback && ((ref3 = _self.callbacks) != null ? ref3[letter.callback] : void 0)) {
+                  _self.callbacks[letter.callback](null, true, letter.to, letter._id);
+                  delete _self.callbacks[letter.callback];
                 }
-              });
-              if (letter.callback && ((ref4 = _self.callbacks) != null ? ref4[letter.callback] : void 0)) {
-                _self.callbacks[letter.callback]({
-                  error: e
-                }, false, letter.to);
+                if (!_self.saveHistory) {
+                  mailQueue.remove({
+                    _id: letter._id
+                  });
+                }
+                if (_self.verbose) {
+                  console.info("Email was successfully sent to " + letter.to);
+                }
+              //}
+            } catch (_error) {
+              console.log(_error,'1111');
+              //if (_self.logging.enabled) {
+                e = _error;
+                if (_self.verbose) {
+                  console.info("Email wasn't sent to " + letter.to, e);
+                }
+                mailQueue.update({
+                  _id: letter._id
+                }, {
+                  $set: {
+                    isSent: false
+                  },
+                  $inc: {
+                    tries: 1
+                  }
+                });
+                if (letter.callback && ((ref4 = _self.callbacks) != null ? ref4[letter.callback] : void 0)) {
+                  _self.callbacks[letter.callback]({
+                    error: e
+                  }, false, letter.to, letter._id);
+                }
+                if (_self.verbose) {
+                  console.info("Trying to send email to " + letter.to + " again for " + (++letter.tries) + " time(s)");
+                }
               }
-              if (_self.verbose) {
-                console.info("Trying to send email to " + letter.to + " again for " + (++letter.tries) + " time(s)");
-              }
-            }
+            //}
           });
         });
       });
@@ -298,3 +305,4 @@ Export the MailTime class
 Meteor.Mailer = MailTime;
 
 export { MailTime };
+export { mailQueue };
